@@ -1,6 +1,6 @@
 import asyncio
 import sys
-
+import pytest
 from golu.config import Settings
 from golu.tools.local_tools import register_local_tools
 from golu.tools.registry import ToolRegistry, ToolResult, ToolSpec
@@ -65,6 +65,27 @@ def test_unknown_tool_and_name_collision():
     res = asyncio.run(registry.execute("missing", {}))
     assert res.is_error and "Unknown tool" in res.text
 
+def test_register_duplicate_names_does_not_overwrite_tools():
+    registry = ToolRegistry()
+
+    async def ok(args):
+        return ToolResult("success")
+
+    first = ToolSpec("read_file", "First tool", {}, "server_a", ok)
+    second = ToolSpec("read_file", "Second tool", {}, "server_a", ok)
+    third = ToolSpec("read_file", "Third tool", {}, "server_a", ok)
+    names = [registry.register(first), registry.register(second), registry.register(third),]
+
+    #check if names of each tools are different
+    assert names == ["read_file", "server_a__read_file", "server_a__read_file_2",]
+    #check length of registry
+    assert len(registry.all()) == 3
+    #check non of the name is None 
+    for name in names:
+        assert registry.get(name) is not None
+    #make sure each tools match with spec
+    assert registry.get("server_a__read_file").description == "Second tool"
+    assert registry.get("server_a__read_file_2").description == "Third tool"
 
 def test_executor_exception_becomes_error_result():
     registry = ToolRegistry()
