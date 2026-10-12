@@ -38,7 +38,7 @@ HELP = """\
   /help                      show this help
   /tools                     list loaded tools by server
   /mode confirm|auto         ask before edits/commands, or run everything
-  /model <provider> [model]  switch model, e.g. /model groq llama-3.3-70b-versatile
+  /model <provider> [model]  switch model, e.g. /model groq openai/gpt-oss-120b
   /clear                     start a fresh conversation
   /exit                      quit (or Ctrl+D)
 

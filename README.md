@@ -90,7 +90,7 @@ python -m golu -p "add docstrings to utils.py"   # one task, then exit
 | `/help` | list commands |
 | `/tools` | show every loaded tool and which server it came from |
 | `/mode confirm` / `/mode auto` | switch confirmation mode |
-| `/model groq llama-3.3-70b-versatile` | switch provider/model mid-session |
+| `/model groq openai/gpt-oss-120b` | switch provider/model mid-session |
 | `/clear` | start a fresh conversation |
 | `/exit` or Ctrl+D | quit |
 

@@ -28,7 +28,7 @@ No RAG index is needed — the tasks only use the filesystem server and
 ```bash
 # From the repo root, venv active:
 python -m benchmarks.run_comparison \
-    --models groq:llama-3.3-70b-versatile groq:llama-3.1-8b-instant \
+    --models groq:openai/gpt-oss-120b groq:openai/gpt-oss-20b \
     --out benchmarks/results.jsonl
 
 python -m benchmarks.aggregate benchmarks/results.jsonl

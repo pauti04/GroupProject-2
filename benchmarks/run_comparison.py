@@ -17,7 +17,7 @@ Then run `python -m benchmarks.aggregate <results file>` to get the table.
 Models are given as `provider:model`, e.g.:
 
     python -m benchmarks.run_comparison \
-        --models groq:llama-3.3-70b-versatile groq:openai/gpt-oss-20b \
+        --models groq:openai/gpt-oss-120b groq:openai/gpt-oss-20b \
         --out benchmarks/results.jsonl
 
 Requirements for a real run: a working Golu (API key in .env for cloud
@@ -45,9 +45,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _parse_model(spec: str) -> tuple[str, str]:
-    """'groq:llama-3.3-70b-versatile' -> ('groq', 'llama-3.3-70b-versatile')."""
+    """'groq:openai/gpt-oss-120b' -> ('groq', 'openai/gpt-oss-120b')."""
     if ":" not in spec:
-        raise SystemExit(f"Model '{spec}' must be in provider:model form, e.g. groq:llama-3.3-70b-versatile")
+        raise SystemExit(f"Model '{spec}' must be in provider:model form, e.g. groq:openai/gpt-oss-120b")
     provider, model = spec.split(":", 1)
     return provider.strip(), model.strip()
 
@@ -128,7 +128,7 @@ def run_pair(provider: str, model: str, task: Task, out: Path,
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run the LLM comparison benchmark.")
     parser.add_argument("--models", nargs="+", required=True,
-                        help="models as provider:model, e.g. groq:llama-3.3-70b-versatile")
+                        help="models as provider:model, e.g. groq:openai/gpt-oss-120b")
     parser.add_argument("--tasks", nargs="*", default=[t.id for t in TASKS],
                         help="task ids to run (default: all)")
     parser.add_argument("--out", type=Path, default=REPO_ROOT / "benchmarks" / "results.jsonl")

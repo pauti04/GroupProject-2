@@ -25,8 +25,13 @@ comparison is between two Groq-hosted models of different size/family:
 
 | Role | Model (provider:model) | Why it's here |
 |---|---|---|
-| Large cloud | `groq:llama-3.3-70b-versatile` | Strong tool-calling baseline |
-| Smaller cloud | `groq:llama-3.1-8b-instant` *(or `groq:openai/gpt-oss-20b`)* | Tests how a smaller model handles the same loop |
+| Large cloud | `groq:openai/gpt-oss-120b` | Larger model; stronger tool-calling baseline |
+| Smaller cloud | `groq:openai/gpt-oss-20b` | Same family, ~6x smaller; tests how a smaller model drives the same loop |
+
+> Model names current as of Oct 2026. Groq retired the Llama 3.x versatile/instant
+> models in Aug 2026; `openai/gpt-oss-120b` and `openai/gpt-oss-20b` are the current
+> production text models. Confirm your account's live list with
+> `GET https://api.groq.com/openai/v1/models` before a run.
 
 *Optional third model:* `ollama:qwen2.5-coder:7b` once Ollama is installed, to add
 a local-vs-cloud dimension. The harness takes any number of `provider:model`
@@ -65,7 +70,7 @@ these tasks use only the filesystem server and `run_shell`.
 ```bash
 # From the repo root, with the venv active:
 python -m benchmarks.run_comparison \
-    --models groq:llama-3.3-70b-versatile groq:llama-3.1-8b-instant \
+    --models groq:openai/gpt-oss-120b groq:openai/gpt-oss-20b \
     --out benchmarks/results.jsonl
 
 # Build the comparison tables:
