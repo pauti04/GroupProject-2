@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -65,9 +66,14 @@ def _run_golu(provider: str, model: str, task: Task, project: Path,
         "--stats-file", str(stats_file),
         "-p", task.prompt,
     ]
+    # Golu's Rich UI emits Unicode (banner, tool panels). When we capture its
+    # output the pipe defaults to the OS encoding (cp1252 on Windows), which
+    # makes Rich crash. Force UTF-8 I/O for the child process.
+    env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
     try:
         proc = subprocess.run(
-            cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=timeout
+            cmd, cwd=str(REPO_ROOT), capture_output=True, text=True,
+            encoding="utf-8", errors="replace", timeout=timeout, env=env,
         )
     except subprocess.TimeoutExpired:
         return {"error": f"golu timed out after {timeout}s", "hit_step_limit": True}
@@ -80,7 +86,11 @@ def _run_golu(provider: str, model: str, task: Task, project: Path,
                 return json.loads(lines[-1])
             except json.JSONDecodeError:
                 pass
+    # No stats line means Golu errored before finishing (e.g. the provider
+    # rejected the model's output). Capture both streams so the write-up can
+    # report the failure mode.
     return {"error": f"golu produced no stats (exit {proc.returncode})",
+            "stdout_tail": (proc.stdout or "")[-800:],
             "stderr_tail": (proc.stderr or "")[-500:]}
 
 
@@ -146,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     for provider, model in models:
         for task in tasks:
             label = f"{provider}:{model}  |  {task.id}"
-            print(f"▶ {label} ...", flush=True)
+            print(f">> {label} ...", flush=True)
             rec = run_pair(provider, model, task, args.out,
                            args.max_steps, args.agent_timeout, args.verify_timeout)
             s = rec["stats"]

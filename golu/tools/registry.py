@@ -10,8 +10,40 @@ MCP server.
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
+
+
+def _make_optionals_nullable(schema: dict[str, Any]) -> dict[str, Any]:
+    """Allow null for every optional scalar parameter, in place.
+
+    Some models (smaller ones especially) emit ``null`` for optional parameters
+    they don't use -- e.g. the filesystem server's ``read_text_file`` has
+    optional ``head``/``tail`` numbers, and a model often sends
+    ``{"head": null, "tail": null}``. Strict provider-side validators (Groq)
+    then reject the whole tool call and the step fails. Widening each optional
+    scalar type to also accept null makes these calls valid instead, so a small
+    model's harmless stray nulls don't abort the task. Required params are left
+    untouched.
+    """
+    if not isinstance(schema, dict):
+        return schema
+    props = schema.get("properties")
+    if isinstance(props, dict):
+        required = set(schema.get("required") or [])
+        for name, spec in props.items():
+            if not isinstance(spec, dict):
+                continue
+            _make_optionals_nullable(spec)  # nested objects
+            if name not in required:
+                t = spec.get("type")
+                if isinstance(t, str) and t != "null":
+                    spec["type"] = [t, "null"]
+    items = schema.get("items")
+    if isinstance(items, dict):
+        _make_optionals_nullable(items)
+    return schema
 
 
 @dataclass
@@ -44,9 +76,10 @@ class ToolSpec:
         LangChain's bind_tools() accepts this format for every provider
         (Ollama, Groq, OpenAI, Anthropic), so we only need one schema shape.
         """
-        params = dict(self.parameters or {})
+        params = copy.deepcopy(dict(self.parameters or {}))
         params.setdefault("type", "object")
         params.setdefault("properties", {})
+        _make_optionals_nullable(params)
         return {
             "type": "function",
             "function": {
