@@ -64,13 +64,20 @@ class ToolRegistry:
         self._tools: dict[str, ToolSpec] = {}
 
     def register(self, spec: ToolSpec) -> str:
-        """Add a tool. If the name is taken, prefix it with its source.
-
+        """Register a tool, ensuring its name is unique.
+        If the name is taken, prefix it with its source.
+        If that name is also taken, append a numeric suffix.
         Returns the name the tool was registered under.
         """
-        name = spec.name
+        original_name = spec.name
+        name = original_name
         if name in self._tools:
             name = f"{spec.source}__{spec.name}"
+        suffix = 2
+        while name in self._tools:
+            name = f"{spec.source}__{original_name}_{suffix}"
+            suffix += 1
+        if name != original_name:
             spec.extra["original_name"] = spec.name
             spec.name = name
         self._tools[name] = spec

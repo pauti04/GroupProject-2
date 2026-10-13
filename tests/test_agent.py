@@ -2,7 +2,7 @@
 
 import asyncio
 
-from langchain_core.messages import AIMessageChunk, ToolMessage
+from langchain_core.messages import AIMessageChunk, ToolMessage, AIMessage
 from langchain_core.messages.tool import tool_call_chunk
 
 from golu.agent import Agent
@@ -129,3 +129,162 @@ def test_repair_history_after_interrupt():
         {"name": "read_file", "args": {}, "id": "c9", "type": "tool_call"}]))
     agent.repair_history()
     assert isinstance(agent.history[-1], ToolMessage) and agent.history[-1].tool_call_id == "c9"
+
+def test_tool_exception_is_handled():
+    registry = ToolRegistry()
+    async def failing_tool(args):
+        raise RuntimeError("Simulated tool failure")
+    registry.register(
+        ToolSpec(
+            "failing_tool",
+            "",
+            {},
+            "test",
+            failing_tool
+        )
+    )
+    model = ScriptedModel([
+        ("failing_tool", '{}'),
+        "The tool failed, but I can continue."
+    ])
+    agent = Agent(
+        model,
+        registry,
+        RecordingUI(),
+        "system",
+        mode="auto",
+    )
+    text, stats = asyncio.run(agent.run("Run the failing tool"))
+    #testing if agent continue after the tool exception
+    assert text == "The tool failed, but I can continue."
+    #testing if exception is recorded as a tool error
+    assert stats.tool_errors == 1
+    tool_msgs = [
+        msg for msg in agent.history if isinstance(msg, ToolMessage)
+    ]
+    assert len(tool_msgs) == 1
+    assert tool_msgs[0].status == "error"
+    assert "Simulated tool failure" in tool_msgs[0].content
+
+def test_repair_history_handles_multiple_unanswered_calls():
+    agent = Agent(
+        ScriptedModel(["Done."]),
+        make_registry([]),
+        RecordingUI(),
+        "system",
+    )
+    agent.history.append(
+        AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "read_file",
+                    "args": {},
+                    "id": "call_read",
+                    "type": "tool_call",
+                },
+                {
+                    "name": "write_file",
+                    "args": {},
+                    "id": "call_write",
+                    "type": "tool_call",
+                },
+            ],
+        )
+    )
+    #Simulate first tool getting finished before any interruption
+    agent.history.append(    
+        ToolMessage(
+            content="File contents",
+            tool_call_id="call_read",
+            name="read_file",
+        )
+    )
+    agent.repair_history()
+    tool_msgs = [
+        msg for msg in agent.history if isinstance(msg, ToolMessage)
+    ]
+    result_ids = {msg.tool_call_id for msg in tool_msgs}
+    #check if there is "call_read" and "call_write"
+    assert result_ids == {"call_read", "call_write"}
+    read_result = next(
+        msg for msg in tool_msgs if msg.tool_call_id == "call_read"
+    )
+    #Check content of result match with simulated tool message we have above
+    assert read_result.content == "File contents"
+    write_result = next(
+        msg for msg in tool_msgs if msg.tool_call_id == "call_write"
+    )
+    #Since write tool is not finished it should return error status
+    assert write_result.status == "error"
+    assert "Cancelled" in write_result.content
+
+def test_compact_history_preserves_recent_tool_results():
+    agent = Agent(
+        ScriptedModel(["Done."]),
+        make_registry([]),
+        RecordingUI(),
+        "system",
+        max_recent_tool_messages=1,
+    )
+    #simulate two complated tasks.
+    agent.history.append(
+        AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "read_file",
+                    "args": {},
+                    "id": "call_old",
+                    "type": "tool_call",
+                }
+            ],
+        )
+    )
+
+    agent.history.append(
+        ToolMessage(
+            content="Old file contents",
+            tool_call_id="call_old",
+            name="read_file",
+        )
+    )
+
+    agent.history.append(
+        AIMessage(
+            content="",
+            tool_calls=[
+                {
+                    "name": "read_file",
+                    "args": {},
+                    "id": "call_recent",
+                    "type": "tool_call",
+                }
+            ],
+        )
+    )
+
+    agent.history.append(
+        ToolMessage(
+            content="Recent file contents",
+            tool_call_id="call_recent",
+            name="read_file",
+        )
+    )
+
+    agent.compact_history()
+    tool_msgs = [
+            msg for msg in agent.history if isinstance(msg, ToolMessage)
+        ]
+    #test length of tool messages
+    assert len(tool_msgs) == 2
+
+    old_result = next(
+        msg for msg in tool_msgs if msg.tool_call_id == "call_old"
+    )
+    recent_result = next(
+            msg for msg in tool_msgs if msg.tool_call_id == "call_recent"
+    )
+    assert "Old file contents" not in old_result.content
+    assert "compacted" in old_result.content.lower()
+    assert recent_result.content == "Recent file contents"

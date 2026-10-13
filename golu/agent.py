@@ -79,13 +79,14 @@ def _text_of(content: Any) -> str:
 
 class Agent:
     def __init__(self, model, registry: ToolRegistry, ui: AgentUI, system_prompt: str,
-                 mode: str = "confirm", max_steps: int = 25,
+                 mode: str = "confirm", max_steps: int = 25, max_recent_tool_messages: int = 20,
                  max_tool_output_chars: int = 12000) -> None:
         self.registry = registry
         self.ui = ui
         self.mode = mode
         self.max_steps = max_steps
         self.max_tool_output_chars = max_tool_output_chars
+        self.max_recent_tool_messages = max(0, max_recent_tool_messages) #This controls how many recent tool results Golu retains in full
         self.system_prompt = system_prompt
         self.history: list[BaseMessage] = [SystemMessage(content=system_prompt)]
         self.set_model(model)
@@ -99,6 +100,36 @@ class Agent:
     def reset(self) -> None:
         """Forget the conversation (used by /clear)."""
         self.history = [SystemMessage(content=self.system_prompt)]
+
+    def compact_history(self) -> None:
+        """Replace older tool outputs with placeholders to reduce context size."""
+        tool_message_idx = [
+            i for i, message in enumerate(self.history) if isinstance(message, ToolMessage) and len(_text_of(message.content)) > 0
+        ]
+
+        if self.max_recent_tool_messages == 0:
+            idx_to_compact = tool_message_idx
+        else:
+            #Keep most recent tool result without changing it
+            idx_to_compact = tool_message_idx[:-self.max_recent_tool_messages]
+        
+        for idx in idx_to_compact:
+            msg = self.history[idx]
+            if _text_of(msg.content).startswith("[Tool output from earlier compacted"): #match with bottom
+                continue
+            status = getattr(msg, "status", None) or "complete"
+            self.history[idx] = ToolMessage(
+                content=(
+                    f"[Tool output from earlier compacted to reduce context size. "
+                    f"Tool: {msg.name or 'unknown'}. "
+                    f"Status: {status}. "
+                    f"Original output length: "
+                    f"{len(_text_of(msg.content))} characters.]"
+                ),
+                tool_call_id=msg.tool_call_id,
+                name=msg.name,
+                status=msg.status,
+        )
 
     def repair_history(self) -> None:
         """After a Ctrl+C mid-task, add placeholder results for tool calls that
@@ -143,6 +174,7 @@ class Agent:
 
     async def _call_llm(self, step: int, stats: RunStats, allow_retry: bool = True) -> AIMessage:
         """Stream one LLM response, showing text as it arrives."""
+        self.compact_history()
         self.ui.on_llm_start(step)
         full = None
         try:
@@ -199,7 +231,13 @@ class Agent:
                 return
 
         self.ui.on_tool_start(name)
-        result = await self.registry.execute(name, args)
+        try: 
+            result = await self.registry.execute(name, args)
+        except Exception as exc:
+            result = ToolResult(
+                f"Tool execution failed: {type(exc).__name__}: {exc}",
+                True,
+            )
         if result.is_error:
             stats.tool_errors += 1
         self.ui.on_tool_result(name, result)
