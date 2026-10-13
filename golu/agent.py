@@ -177,14 +177,39 @@ class Agent:
         self.compact_history()
         self.ui.on_llm_start(step)
         full = None
+        stream_error: Exception | None = None
         try:
             async for chunk in self._bound.astream(self.history):
                 text = _text_of(chunk.content)
                 if text:
                     self.ui.on_text(text)
                 full = chunk if full is None else full + chunk
+        except Exception as exc:  # noqa: BLE001 - provider may reject a bad tool call
+            stream_error = exc
         finally:
             self.ui.on_llm_end()
+
+        if stream_error is not None:
+            # Some providers (e.g. Groq) validate the model's tool call server-side
+            # and raise if its arguments are unparseable JSON or don't match the
+            # tool schema. Instead of aborting the whole task, ask the model to
+            # re-emit valid arguments and retry once (mirrors the invalid_tool_calls
+            # handling below). Non tool-call errors (network, auth) are re-raised.
+            msg = str(stream_error).lower()
+            retriable = "tool call" in msg and (
+                "parse" in msg or "json" in msg or "schema" in msg or "validation" in msg
+            )
+            if allow_retry and retriable:
+                self.ui.on_notice(
+                    "Provider rejected the model's tool call; asking it to retry with valid arguments."
+                )
+                self.history.append(HumanMessage(
+                    content="Your previous tool call was rejected because its arguments were not "
+                            "valid JSON or did not match the tool's schema. Call the tool again "
+                            "with valid JSON arguments, including only the parameters you need."
+                ))
+                return await self._call_llm(step, stats, allow_retry=False)
+            raise stream_error
 
         if full is None:
             return AIMessage(content="")

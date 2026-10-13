@@ -33,7 +33,7 @@ load_dotenv(GOLU_HOME / ".env")
 # Default model for each provider. Override with --model or *_MODEL in .env.
 DEFAULT_MODELS = {
     "ollama": os.getenv("OLLAMA_MODEL", "qwen2.5-coder:7b"),
-    "groq": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
+    "groq": os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"),
     "openai": os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
     "anthropic": os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5"),
 }
