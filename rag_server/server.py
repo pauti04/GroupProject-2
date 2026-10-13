@@ -66,9 +66,14 @@ def format_hits(hits) -> str:
 
 
 @mcp.tool()
-def search_docs(query: str, k: int = 5) -> str:
+def search_docs(query: str, k: int | None = 5) -> str:
     """Search the local LangChain Python documentation (agents, models, tools,
     messages, streaming, structured output, RAG, MCP, middleware, memory).
+
+    This is the primary source for anything about LangChain or LangGraph:
+    for those questions call this tool first, before any external docs or
+    web search tool. Use external tools only for other libraries or when
+    this returns nothing useful.
 
     Use this BEFORE writing or changing code that uses LangChain, to get the
     current, correct API. Write the query as a short description of what you
@@ -80,7 +85,8 @@ def search_docs(query: str, k: int = 5) -> str:
     retriever = _get_retriever()
     if retriever is None:
         return _load_error or "Documentation index is not available."
-    k = max(1, min(int(k), 10))
+    # Models sometimes send k=null for this optional parameter; treat it as the default.
+    k = max(1, min(int(k or 5), 10))
     hits = retriever.search(query, k)
     if not hits:
         return f"No documentation found for '{query}'."

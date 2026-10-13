@@ -81,6 +81,18 @@ def main(argv: list[str] | None = None) -> int:
         results[label] = r
         print(f"| {label:<22} | {r['hit_at_k']:.2f}   | {r['mrr']:.2f}  |")
 
+    # Same metrics per question type, to show where fusion helps and where it doesn't.
+    types = sorted({q.get("type", "untyped") for q in questions})
+    if len(types) > 1:
+        print(f"\n| {'method':<22} | {'type':<11} | n  | Hit@{args.k:<3} | MRR   |")
+        print(f"|{'-' * 24}|{'-' * 13}|{'-' * 4}|{'-' * 8}|{'-' * 7}|")
+        for label, r in results.items():
+            for t in types:
+                ranks = [rank for q, rank in zip(questions, r["ranks"]) if q.get("type", "untyped") == t]
+                hit = sum(rank is not None for rank in ranks) / len(ranks)
+                mrr = sum(1 / rank for rank in ranks if rank) / len(ranks)
+                print(f"| {label:<22} | {t:<11} | {len(ranks):<2} | {hit:.2f}   | {mrr:.2f}  |")
+
     if args.show_misses:
         for label, r in results.items():
             missed = [q["question"] for q, rank in zip(questions, r["ranks"]) if rank is None]
