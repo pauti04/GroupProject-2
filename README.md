@@ -143,6 +143,8 @@ Compare it with the vector-only baseline:
 python -m rag_server.evaluate --alphas 0.3 0.5 0.7 --show-misses
 ```
 
+On 46 test questions, fusion raises Hit@5 from 0.91 to 0.96 and finds every exact-identifier question (vector search misses 2 of 20), for about 5 ms more per query. Results and analysis: [docs/rag-evaluation.md](docs/rag-evaluation.md).
+
 ### Comparing LLMs
 
 Run the same task with different models and log the numbers (steps, tool calls, errors, tokens, time):
