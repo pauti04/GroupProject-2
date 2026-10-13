@@ -18,3 +18,12 @@ The original planning-phase architecture is kept unchanged in [architecture.md](
 - `/model` switches provider/model mid-session; `a` at a confirmation prompt approves that tool for the rest of the session.
 - `write_file` and `edit_file` calls show the new content or diff before running.
 - `rag_server/evaluate.py` reports Hit@k and MRR for the vector baseline vs. fusion at several alpha values.
+- Scenario 3 sequence diagram (`diagrams/seq-explore-and-change.mmd`): codebase
+  exploration with `search_code`, and a confirmation the user denies. Added
+  because the two planning-phase scenarios between them never showed the
+  `search_code` local tool or the denied-confirmation path, and the project
+  requires at least three distinct end-to-end operations across the diagrams.
+- `docs/sequence-diagrams.md` collects the as-built diagrams in one place, so
+  `architecture.md` can stay frozen as the planning-phase original.
+- README: full command-line option table, and the ten environment variables the
+  code reads that `.env.example` did not list.
