@@ -77,6 +77,20 @@ python -m golu --mode auto                       # don't ask before edits/comman
 python -m golu -p "add docstrings to utils.py"   # one task, then exit
 ```
 
+All command-line options:
+
+| Option | Default | What it does |
+|---|---|---|
+| `--project PATH` | current folder | Folder Golu may read and write. The filesystem MCP server is locked to it. |
+| `--provider NAME` | `ollama` | `ollama` or `groq` (also `openai` / `anthropic` if you add a key). |
+| `--model NAME` | provider default | Override the model, e.g. `--model qwen2.5-coder:7b`. |
+| `--mode {confirm,auto}` | `confirm` | `confirm` asks before edits and commands; `auto` runs them without asking. |
+| `-p`, `--prompt TEXT` | &mdash; | Run one task and exit, instead of opening the REPL. |
+| `--max-steps N` | 25 | Cap on agent iterations for a single task, so a stuck loop ends. |
+| `--config PATH` | `mcp_config.json` | Use a different MCP server config file. |
+| `--stats-file PATH` | &mdash; | Append per-task stats (steps, tool calls, errors, tokens, time) as JSON lines. Used for the LLM comparison. |
+| `--version` | &mdash; | Print the version and exit. |
+
 ## Using Golu
 
 **Modes**
@@ -97,6 +111,10 @@ python -m golu -p "add docstrings to utils.py"   # one task, then exit
 Press **Ctrl+C** while Golu is working to stop the current task.
 
 ## How it works
+
+Diagrams: [state and sequence diagrams](docs/sequence-diagrams.md) for three
+end-to-end scenarios. The planning-phase originals are kept in
+[docs/architecture.md](docs/architecture.md).
 
 ```
 User ─▶ CLI (golu/cli.py, golu/ui.py)
